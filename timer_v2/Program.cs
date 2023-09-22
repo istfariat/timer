@@ -11,11 +11,12 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using Windows.UI.Notifications;
 
 namespace TimerApp
 {
 
-    
+
     internal class Program
     {
 
@@ -47,8 +48,23 @@ namespace TimerApp
         static bool selectionActive = false;
         static int selection;
         static string[] entryField = new string[6] { "starttime", "endtime", "duration", "field", "subject", "stage" };
-        static string[] commandList = new string[7] { "start", "stop", "delete", "show", "deselect", "select", "edit"}; // first commands without args, then with 1 arg
+        //static string[] commandList = new string[7] { "start", "stop", "delete", "show", "deselect", "select", "edit"}; // first commands without args, then with 1 arg
+        static Dictionary<string, string> singleCommands = new Dictionary<string, string>()
+                                                                    {
+                                                                        {"start", "Start a new timer." },
+                                                                        {"stop", "Stop live timer, if there's any."},
+                                                                        {"delete", "Delete selected entry."},
+                                                                        {"show", "Show all saved entries."},
+                                                                        {"deselect", "Deselect selected entry."},
+                                                                        {"help", "Show help."}
+                                                                    };
+        static Dictionary<string, string> doubleCommands = new Dictionary<string, string>()
+        { 
+            { "select", "Select a timer. For use type 'select X', where X is index of chosen timer"},
+            {"edit", "Edit property of selected timer. For use type 'edit X', where X is chosen property. Each timer has 'field', 'subject', 'stage', 'starttime', 'endtime', 'duration' properties.)"} 
+        };
 
+        static Stopwatch mainTimer = new Stopwatch();
 
         static void Main(string[] args)
         {
@@ -65,20 +81,17 @@ namespace TimerApp
             //Timer inactivityTimer = new Timer();
 
             int i = 0;
-            int[] parsedInput = new int[3];
-            
 
-            Console.WriteLine("This is timer, type 'start' to start a timer, type 'stop' to stop it. You can edit name of running timer by typing 'name 1', 'name 2', 'name 3'.");
+            Console.WriteLine("This is timer, type 'start' to start a timer, type 'stop' to stop it, 'help' to see all commands.");
 
             while (i < 100)
             {
-                //Console.WriteLine("Names of timer:\nname1: {0}\nname2: {1}\nname3: {2}", timerName[0], timerName[1], timerName[2]);
-                //userInput(timer);
+                var parsedInput = ValidateCommand(InputCommand());
 
-
-                parsedInput = ValidateCommand(InputCommand());
-                
-                ChooseAction(parsedInput);
+                if (parsedInput.Item3)
+                {
+                    ChooseAction(parsedInput.Item1, parsedInput.Item2);
+                }
 
                 i++;
             }
@@ -86,81 +99,123 @@ namespace TimerApp
             Console.ReadLine();
         }
 
-        static void userInput(Stopwatch clock)
+
+        static string InputCommand()
         {
             Console.Write("> ");
-            string command = Console.ReadLine();
-            
-            if (command == "start")
-                startTimer(clock);
-            else if (command == "stop")
-                stopTimer(clock);
-
-            //case "name 1" or "name 2" or "name 3":
-            //    if (clock.IsRunning)
-            //        editName(command);
-            //    else
-            //        Console.WriteLine("No timer running to edit.");
-            //    break;
-            else if (command == "show")
-            {
-                Console.WriteLine("Here is the history:");
-                for (int i = 0; i < history.Count; i++)
-                {
-                    Console.WriteLine("Timer entry {0}:", i + 1);
-                    for (int j = 0; j < 6; j++)
-                        Console.WriteLine("\t {0}{1}", fields[j], history[i][j]);
-                }
-            }
-            else if (command == "save")
-                SaveEntry();
-
-            else if (editComms.Contains(command))
-                EditEntry(command, selection, selectionActive);
-
-            else if (command.Substring(0,6) == "select")
-            {
-                selectionActive = true;
-                try
-                {
-                    selection = int.Parse(command.Substring(7));
-                }
-                catch (ArgumentOutOfRangeException)
-                {
-                    selection = 0;
-                    Console.WriteLine("Invalid format. Try typing 'select X' where x is field to edit.");
-                    selectionActive = false;
-                }
-                catch (FormatException)
-                {
-                    selection = 0;
-                    Console.WriteLine("Invalid format. Try typing 'select X' where x is field to edit.");
-                    selectionActive = false;
-                }
-                catch (OverflowException)
-                {
-                    selection = 0;
-                    Console.WriteLine("Invalid format. Try typing 'select X' where x is field to edit.");
-                    selectionActive = false;
-                }     
-            }
-            else if (command == "deselect")
-            {
-                selectionActive = false;
-                Console.WriteLine("Deselection successeful.");
-            }
-            else
-            {
-                Console.WriteLine("Invalid command.");
-            }
-            return;
+            return Console.ReadLine();
         }
 
-        static void startTimer(Stopwatch timer)
+        static (string commandName, int commandArg, bool comandValid) ValidateCommand(string userCommand)
         {
-            if (timer.IsRunning)
+            string[] comArray = userCommand.Split(' ');
+            string commandName = comArray[0];
+            int commandArg = -1;
+            bool commandValid = false;
+            
+            bool commIndexSingle = singleCommands.ContainsKey(commandName);
+            //bool commIndexDouble = doubleCommands.ContainsKey(commandName);
+
+            switch (comArray.Length)
             {
-                Console.WriteLine("Timer already running, it is {0} currently", RoundToSeconds(timer.Elapsed));
+                case 1:
+                    {
+                        if (commIndexSingle)
+                        {
+                            commandValid = true;
+                            break;
+                        }
+                        Console.WriteLine("Invalid command.");
+                        break;
+                    }
+                case 2:
+                    {
+                        commandArg = Array.IndexOf(entryField, comArray[1]);
+
+                        if (commandArg != -1 && commandName == "edit")
+                        {
+                            commandValid = true;
+                            break;
+                        }
+                        else if (commandName == "select")
+                        {
+                            try
+                            {
+                                commandArg = int.Parse(comArray[1]);
+                                commandValid = true;
+                                break;
+                            }
+                            catch (ArgumentNullException)
+                            {
+                                Console.Write("Invalid argument. ");
+                                commandValid = false;
+                            }
+                            catch (FormatException)
+                            {
+                                Console.Write("Invalid argument. ");
+                                commandValid = false;
+                            }
+                            catch (OverflowException)
+                            {
+                                Console.Write("Invalid argument, number too big. ");
+                                commandValid = false;
+                            }
+                        }
+
+                        commandValid = false;
+                        Console.WriteLine("Invalid command.");
+                        break;
+                    }
+
+                default:
+                    {
+                        Console.WriteLine("Invalid command.");
+                        break;
+                    }
+            }
+
+            return (commandName, commandArg, commandValid);
+        }
+
+        static void ChooseAction(string command, int inputIndex)
+        {
+            switch (command)
+            {
+                case "start":
+                    startTimer();
+                    break;
+                case "stop":
+                    stopTimer();
+                    break;
+                case "delete":
+                    DeleteEntry();
+                    break;
+                case "show":
+                    ShowHistory();
+                    break;
+                case "deselect":
+                    DeselectEntry();
+                    break;
+                case "select":
+                    SelectEntry(inputIndex);
+                    break;
+                case "edit":
+                    EditEntry(inputIndex);
+                    break;
+                case "help":
+                    ShowHelp();
+                    break;
+                default:
+                    Console.WriteLine("Something went wrong.");
+                    break;
+            }
+        }
+
+        static void startTimer()
+        {
+            if (mainTimer.IsRunning)
+            {
+                Console.WriteLine("Timer already running, it is {0} currently", RoundToSeconds(mainTimer.Elapsed));
             }
             else
             {
@@ -168,22 +223,22 @@ namespace TimerApp
 
                 LoadEntry();
                 history.Add(newEntry);
-                timer.Start();
+                mainTimer.Start();
                 history[history.Count - 1][0] = DateTime.Now.ToString();
-                SaveEntry();
+                SaveEntry(true);
             }
         }
 
-        static void stopTimer(Stopwatch timer)
+        static void stopTimer()
         {
-            if (timer.IsRunning)
+            if (mainTimer.IsRunning)
             {
-                TimeSpan roundedTime = RoundToSeconds(timer.Elapsed);
-                timer.Stop();
+                TimeSpan roundedTime = RoundToSeconds(mainTimer.Elapsed);
+                mainTimer.Stop();
                 history[history.Count - 1][1] = DateTime.Now.ToString();
                 history[history.Count - 1][2] = roundedTime.ToString();
-                System.Console.WriteLine("Last entry was {0} long", roundedTime);
-                timer.Reset();
+                Console.WriteLine("Last entry was {0} long", roundedTime);
+                mainTimer.Reset();
                 SaveEntry();
             }
             else
@@ -193,16 +248,96 @@ namespace TimerApp
 
         }
 
-        static TimeSpan RoundToSeconds(TimeSpan timeInput)
-        {
-            int precision = 0; // how many digits past the decimal point
-            const int TIMESPAN_SIZE = 7; // it always has seven digits
-                                         // convert the digitsToShow into a rounding/truncating mask
-            int factor = (int)Math.Pow(10, (TIMESPAN_SIZE - precision));
 
-            TimeSpan roundedTimeSpan = new TimeSpan(((long)Math.Round((1.0 * timeInput.Ticks / factor)) * factor));
-            return roundedTimeSpan;
+        static void ShowHistory() //нужен ли load??
+        {            
+            Console.WriteLine("Here is the history:");
+            for (int i = 0; i < history.Count; i++)
+            {
+                if (selectionActive && selection == i)
+                {
+                    Console.WriteLine("Timer entry {0}: (selected)", i);
+                }
+                else
+                {
+                    Console.WriteLine("Timer entry {0}:", i);
+                }
+                
+                for (int j = 0; j < 6; j++)
+                    Console.WriteLine("\t {0}{1}", fields[j], history[i][j]);
+            }            
         }
+
+        static void SelectEntry(int entryIndex)
+        {
+            
+            if (entryIndex > history.Count - 1 || entryIndex < 0)
+            {
+                Console.WriteLine("There is no timer with this index.");
+                selectionActive = false;
+                return;
+            }
+
+            selection = entryIndex;
+            selectionActive = true;
+            return;
+        }
+
+        static void DeselectEntry()
+        {            
+            if (selectionActive)
+            {
+                selectionActive = false;
+                Console.WriteLine("Deselection successeful.");
+            }
+            else
+            {
+                Console.WriteLine("No entry selected.");
+            }
+        }
+
+        static void DeleteEntry()
+        {
+            if (selectionActive)
+            {
+                if (mainTimer.IsRunning)
+                {
+                    mainTimer.Stop();
+                    mainTimer.Reset();
+                    Console.Write("Live timer stopped. ");
+                }
+                history.RemoveAt(selection);
+                Console.WriteLine("Entry deleted");
+                DeselectEntry();                
+                SaveEntry();
+            }
+            else
+            {
+                Console.WriteLine("No entry selected to delete.");
+            }
+        }
+
+        static void ShowHelp()
+        {
+            Dictionary<string, string> allCommands = new Dictionary<string, string>();
+            
+            singleCommands.ToList().ForEach(x => allCommands.Add(x.Key, x.Value));
+            doubleCommands.ToList().ForEach(x => allCommands.Add(x.Key, x.Value));
+
+            foreach (var command in allCommands.OrderBy(command => command.Key))
+                Console.WriteLine("{0}\t\t{1}", command.Key, command.Value);
+        }
+
+        static void EditEntry(int inputIndex)
+        {
+            
+        }
+
+        static void ParseInput(string userInput)
+        {
+
+        }
+
 
         //static void editName(string userInput)
         //{
@@ -216,7 +351,21 @@ namespace TimerApp
         //    return;
         //}
 
-        static void SaveEntry ()
+        static TimeSpan RoundToSeconds(TimeSpan timeInput)
+        {
+            int precision = 0; // how many digits past the decimal point
+            const int TIMESPAN_SIZE = 7; // it always has seven digits
+                                         // convert the digitsToShow into a rounding/truncating mask
+            int factor = (int)Math.Pow(10, (TIMESPAN_SIZE - precision));
+
+            TimeSpan roundedTimeSpan = new TimeSpan(((long)Math.Round((1.0 * timeInput.Ticks / factor)) * factor));
+           
+            return roundedTimeSpan;
+        }
+
+
+
+        static void SaveEntry (bool append = false)
         {
             if (!File.Exists(pathToSave))
             {
@@ -233,7 +382,7 @@ namespace TimerApp
             }
             else
             {                
-                using (StreamWriter sw = new StreamWriter(pathToSave,true))
+                using (StreamWriter sw = new StreamWriter(pathToSave, append))
                 {
                     for (int i = 0; i < history.Count; i++)
                     {
@@ -243,12 +392,10 @@ namespace TimerApp
                     }
                 }
             }
-
-            
             
         }
 
-        static void LoadEntry()
+        static void LoadEntry() // нужен парсер
         {
             if (!File.Exists(pathToSave))
             {
@@ -267,208 +414,5 @@ namespace TimerApp
                 }
             }
         }
-
-        static void EditEntry(string editField, int selectedItem, bool liveSelected = false)
-        {
-            editField = editField.Substring(5);
-            if (!File.Exists(pathToSave) || liveSelected)
-            {
-                Console.WriteLine("There is no entry selected to edit. Select timer first.");
-                return;
-            }
-            else if (selectedItem > history.Count - 1 || selectedItem < 0)
-            {
-                Console.WriteLine("There is timer with that number.");
-                return;
-            }
-
-            switch (editField)
-            {
-                case "name 1":
-                    history[selectedItem][0] = Console.ReadLine();
-                    break;
-                case "name 2":
-                    history[selectedItem][0] = Console.ReadLine();
-                    break;
-                case "name 3":
-                    history[selectedItem][0] = Console.ReadLine();
-                    break;
-                case "start":
-                    history[selectedItem][0] = Console.ReadLine();
-                    break;
-                case "end":
-                    history[selectedItem][0] = Console.ReadLine();
-                    break;
-                case "duration":
-                    history[selectedItem][0] = Console.ReadLine();
-                    break;
-            }
-        }
-
-        static string InputCommand ()
-        {
-            Console.Write("> ");
-            return Console.ReadLine();
-        }
-
-        static int SelectItem(string[] command)
-        {
-            int itemIndex = int.Parse(command[1]);
-            if (itemIndex > history.Count - 1 || itemIndex < 0)
-            {
-                Console.WriteLine("There is no timer with this index.");
-                selectionActive = false;
-                return 0;
-            }
-            
-            selectionActive = true;
-            return itemIndex;
-        }
-
-        static int[] ValidateCommand (string userCommand) //returns command, command argument, code of result 0=invalid, 1= single word comm, 2=double word comm
-        {
-            string[] comArray = userCommand.Split(' ');
-            int[] result = new int[3];
-
-            int commIndex = Array.IndexOf(commandList, comArray[0]);
-            if (commIndex != -1)
-            {
-                switch (comArray.Length)
-                {
-                    case 1:
-                        {
-                            if (commIndex < 5)
-                            {
-                                result[0] = commIndex;
-                                result[2] = 1;
-                                return result;
-                            }
-                            break;
-                        }
-                    case 2:
-                        {
-                            int argIndex = Array.IndexOf(entryField, comArray[1]);
-                            result[0] = commIndex;
-                            result[2] = 2;
-
-                            if (argIndex != -1 && commIndex == 6) //edit
-                            {
-                                result[1] = argIndex;
-                                return result;
-                            }
-                            else if (commIndex == 5) //select
-                            {
-                                //int[] parsedInput = ParseInt(comArray[1]);
-
-                                //if (parsedInput[1] == 0)
-
-                                try
-                                {
-                                    result[1] = int.Parse(comArray[1]);
-                                    result[2] = 2;
-                                    return result;
-                                }
-                                catch (ArgumentNullException)
-                                {
-                                    Console.Write("Invalid argument.");
-                                }
-                                catch (FormatException)
-                                {
-                                    Console.Write("Invalid argument.");
-                                }
-                                catch (OverflowException)
-                                {
-                                    Console.Write("Invalid argument, number too big.");                                    
-                                }                                
-                            }
-
-                            break;
-                        }
-
-                    default:
-                        break;
-                }
-            }
-            
-            Console.WriteLine("Invalid command.");
-            result[2] = 0;
-            return result;            
-        }
-
-
-        //static int[] ParseInt(string argToInt)
-        //{
-        //    int[] result = new int[2];
-
-        //    try
-        //    {
-        //        result[0] = int.Parse(argToInt);
-        //        result[1] = 1;
-        //    }
-        //    catch (ArgumentNullException)
-        //    { 
-        //        Console.WriteLine("Invalid argument.");
-        //    }
-        //    catch (FormatException)
-        //    {
-        //        Console.WriteLine("Invalid argument.");
-        //    }
-        //    catch (OverflowException)
-        //    {
-        //        Console.WriteLine("Invalid argument, number too big.");
-        //    }
-
-
-        //    return result;
-        //    }
-
-        //static void EditName()
-        //{
-        //    if (!File.Exists(pathToSave))
-        //    {
-        //        Console.WriteLine("There is no file with history to edit.");
-        //    }
-        //    else
-        //    {
-
-        //    }
-        //}
-
-        //static void EditStart()
-        //{
-        //    if (!File.Exists(pathToSave))
-        //    {
-        //        Console.WriteLine("There is no file with history to edit.");
-        //    }
-        //    else
-        //    {
-
-        //    }
-        //}
-
-        //static void EditEnd()
-        //{
-        //    if (!File.Exists(pathToSave))
-        //    {
-        //        Console.WriteLine("There is no file with history to edit.");
-        //    }
-        //    else
-        //    {
-
-        //    }
-        //}
-
-        //static void EditDuration()
-        //{
-        //    if (!File.Exists(pathToSave))
-        //    {
-        //        Console.WriteLine("There is no file with history to edit.");
-        //    }
-        //    else
-        //    {
-
-        //    }
-        //}
     }
 }
-
