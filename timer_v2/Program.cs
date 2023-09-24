@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using Windows.UI.Notifications;
+using ABI.System;
 
 namespace TimerApp
 {
@@ -59,10 +60,10 @@ namespace TimerApp
                                                                         {"help", "Show help."}
                                                                     };
         static Dictionary<string, string> doubleCommands = new Dictionary<string, string>()
-        { 
-            { "select", "Select a timer. For use type 'select X', where X is index of chosen timer"},
-            {"edit", "Edit property of selected timer. For use type 'edit X', where X is chosen property. Each timer has 'field', 'subject', 'stage', 'starttime', 'endtime', 'duration' properties.)"} 
-        };
+                                                                    { 
+                                                                        {"select", "Select a timer. For use type 'select X', where X is index of chosen timer"},
+                                                                        {"edit", "Edit property of selected timer. For use type 'edit X', where X is chosen property. Each timer has 'field', 'subject', 'stage', 'starttime', 'endtime', 'duration' properties.)"} 
+                                                                    };
 
         static Stopwatch mainTimer = new Stopwatch();
 
@@ -233,7 +234,7 @@ namespace TimerApp
         {
             if (mainTimer.IsRunning)
             {
-                TimeSpan roundedTime = RoundToSeconds(mainTimer.Elapsed);
+                System.TimeSpan roundedTime = RoundToSeconds(mainTimer.Elapsed);
                 mainTimer.Stop();
                 history[history.Count - 1][1] = DateTime.Now.ToString();
                 history[history.Count - 1][2] = roundedTime.ToString();
@@ -330,36 +331,65 @@ namespace TimerApp
 
         static void EditEntry(int inputIndex)
         {
-            
+            if (!selectionActive)
+                return;
+
+            switch (inputIndex)
+            {
+                case 0 or 1: //datetime parser
+                    break;
+                case 2:     //timespan parser
+                    break;
+                case 3 or 4 or 5:
+                    Console.WriteLine("Enter {0} of your activity:", fields[inputIndex]);
+                    history[selection][inputIndex] = InputCommand();
+                    break;               
+                default:
+                    Console.WriteLine("Something went wrong.");
+                    return;
+            }
+            SaveEntry();
         }
 
         static void ParseInput(string userInput)
         {
 
         }
+        static void ParseStringToDateTime(string userInput)
+        {
 
+        }
 
-        //static void editName(string userInput)
-        //{
+        static (System.TimeSpan, bool success) ParseStringToTimespan(string sourceString)
+        {
+            System.TimeSpan result = new System.TimeSpan();
+            bool success;
 
-        //    string[] workStep = new string[3] { "field", "object", "task/stage" };
-        //    int workIndex = int.Parse(userInput.Substring(5)) - 1;
+            try
+            {
+                result = System.TimeSpan.Parse(sourceString);
+                success = true;
+            }
+            catch
+            {
+                Console.WriteLine("Invalid time format input.");
+                success = false;
+            }
+            
+            return (result, success);
+        }
 
-        //    Console.WriteLine("Enter name of your {0} of work: ", workStep[workIndex]);
-        //    history[history.Count - 1][workIndex + 3] = Console.ReadLine();
-
-        //    return;
-        //}
-
-        static TimeSpan RoundToSeconds(TimeSpan timeInput)
+       
+        static string RoundToSeconds(System.TimeSpan timeInput)
         {
             int precision = 0; // how many digits past the decimal point
             const int TIMESPAN_SIZE = 7; // it always has seven digits
                                          // convert the digitsToShow into a rounding/truncating mask
             int factor = (int)Math.Pow(10, (TIMESPAN_SIZE - precision));
 
-            TimeSpan roundedTimeSpan = new TimeSpan(((long)Math.Round((1.0 * timeInput.Ticks / factor)) * factor));
-           
+            //TimeSpan roundedTimeSpan = new TimeSpan(((long)Math.Round((1.0 * timeInput.Ticks / factor)) * factor));
+            string roundedTimeSpan = timeInput.ToString("c");
+
             return roundedTimeSpan;
         }
 
