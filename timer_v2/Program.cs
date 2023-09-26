@@ -85,6 +85,7 @@ namespace TimerApp
 
             Console.WriteLine("This is timer, type 'start' to start a timer, type 'stop' to stop it, 'help' to see all commands.");
 
+            LoadEntry();
             while (i < 100)
             {
                 var parsedInput = ValidateCommand(InputCommand());
@@ -222,7 +223,7 @@ namespace TimerApp
             {
                 string[] newEntry = new string[6];
 
-                LoadEntry();
+                //LoadEntry();
                 history.Add(newEntry);
                 mainTimer.Start();
                 history[history.Count - 1][0] = DateTime.Now.ToString();
@@ -234,10 +235,10 @@ namespace TimerApp
         {
             if (mainTimer.IsRunning)
             {
-                System.TimeSpan roundedTime = RoundToSeconds(mainTimer.Elapsed);
+                string roundedTime = RoundToSeconds(mainTimer.Elapsed);
                 mainTimer.Stop();
                 history[history.Count - 1][1] = DateTime.Now.ToString();
-                history[history.Count - 1][2] = roundedTime.ToString();
+                history[history.Count - 1][2] = roundedTime;
                 Console.WriteLine("Last entry was {0} long", roundedTime);
                 mainTimer.Reset();
                 SaveEntry();
@@ -333,21 +334,30 @@ namespace TimerApp
         {
             if (!selectionActive)
                 return;
+            
+            string timeName = "";
+            
+            if (inputIndex == 0)
+                timeName = "starttime";
+            else if (inputIndex == 1)
+                timeName = "endtime";
 
-            switch (inputIndex)
-            {
-                case 0 or 1: //datetime parser
-                    break;
-                case 2:     //timespan parser
-                    break;
-                case 3 or 4 or 5:
-                    Console.WriteLine("Enter {0} of your activity:", fields[inputIndex]);
-                    history[selection][inputIndex] = InputCommand();
-                    break;               
-                default:
-                    Console.WriteLine("Something went wrong.");
-                    return;
-            }
+                switch (inputIndex)
+                {
+                    case 0 or 1: //datetime parser
+                        Console.WriteLine("Enter new {0}. Duration will be adjusted. Format of input: ", timeName);
+                        break;
+                    case 2:     //timespan parser
+                        Console.WriteLine("Enter new duration of timer. Endtime will be adjusted. Format of input: hh:mm:ss", timeName);
+                        break;
+                    case 3 or 4 or 5:
+                        Console.WriteLine("Enter {0} of your activity:", fields[inputIndex]);
+                        history[selection][inputIndex] = InputCommand();
+                        break;
+                    default:
+                        Console.WriteLine("Something went wrong.");
+                        return;
+                }
             SaveEntry();
         }
 
@@ -355,9 +365,23 @@ namespace TimerApp
         {
 
         }
-        static void ParseStringToDateTime(string userInput)
+        static (DateTime, bool success) ParseStringToDateTime(string sourceString)
         {
+            DateTime result = new DateTime();
+            bool success;
 
+            try
+            {
+                result = DateTime.Parse(sourceString);
+                success = true;
+            }
+            catch
+            {
+                Console.WriteLine("Invalid time format input.");
+                success = false;
+            }
+
+            return (result, success);
         }
 
         static (System.TimeSpan, bool success) ParseStringToTimespan(string sourceString)
@@ -425,7 +449,7 @@ namespace TimerApp
             
         }
 
-        static void LoadEntry() // нужен парсер
+        static void LoadEntry()
         {
             if (!File.Exists(pathToSave))
             {
@@ -437,9 +461,13 @@ namespace TimerApp
                 using (StreamReader sr = File.OpenText(pathToSave))
                 {
                     string s;
+                    
+
                     while ((s = sr.ReadLine()) != null)
                     {
-                        Console.WriteLine(s);
+                        string[] currentLine = s.Split("\t");
+                        history.Add(currentLine);
+                        //Console.WriteLine(s);
                     }
                 }
             }
