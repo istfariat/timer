@@ -345,18 +345,81 @@ namespace TimerApp
                 switch (inputIndex)
                 {
                     case 0 or 1: //datetime parser
+                    {
+                        DateTime newTime = new DateTime();
+                        DateTime startTime = new DateTime();
+                        DateTime endTime = new DateTime();
+                        string duration = "";
+                        bool parseSuccess;
+
                         Console.WriteLine("Enter new {0}. Duration will be adjusted. Format of input: ", timeName);
+
+                        (newTime, parseSuccess) = ParseStringToDateTime(InputCommand());
+
+                        if (!parseSuccess)
+                            break;
+
+                        if (inputIndex == 0)
+                        {
+                            startTime = newTime;
+                            endTime = ParseStringToDateTime(history[selection][1]).Item1;
+                        }
+                        else
+                        {
+                            endTime = newTime;
+                            startTime = ParseStringToDateTime(history[selection][0]).Item1;
+                        }
+
+                        if (DateTime.Compare(startTime, endTime) < 0)
+                        {
+                            duration = endTime.Subtract(startTime).ToString("c");
+                            history[selection][0] = startTime.ToString();
+                            history[selection][1] = endTime.ToString();
+                            history[selection][2] = duration;
+                        }
+                        else
+                            Console.WriteLine("start time must be earlier than endtime");
                         break;
+                    }
                     case 2:     //timespan parser
+                    {
+                        System.TimeSpan newDuration = new System.TimeSpan();
+                        DateTime startTime = new DateTime();
+                        DateTime endTime = new DateTime();
+                        string duration = "";
+                        bool parseSuccess;
+                        
                         Console.WriteLine("Enter new duration of timer. Endtime will be adjusted. Format of input: hh:mm:ss", timeName);
+
+                        (newDuration, parseSuccess) = ParseStringToTimespan(InputCommand());
+
+                        if (!parseSuccess)
+                            break;
+
+
+                        (startTime, parseSuccess) = ParseStringToDateTime(history[selection][0]);
+
+                        if (!parseSuccess)
+                            break;
+
+                        endTime = startTime.Add(newDuration);
+                        
+                        duration = newDuration.ToString("c");
+                        history[selection][1] = endTime.ToString();
+                        history[selection][2] = duration;
                         break;
+                    }
                     case 3 or 4 or 5:
+                    {
                         Console.WriteLine("Enter {0} of your activity:", fields[inputIndex]);
                         history[selection][inputIndex] = InputCommand();
                         break;
+                    }
                     default:
+                    {
                         Console.WriteLine("Something went wrong.");
                         return;
+                    }
                 }
             SaveEntry();
         }
@@ -414,7 +477,7 @@ namespace TimerApp
             //TimeSpan roundedTimeSpan = new TimeSpan(((long)Math.Round((1.0 * timeInput.Ticks / factor)) * factor));
             string roundedTimeSpan = timeInput.ToString("c");
 
-            return roundedTimeSpan;
+            return roundedTimeSpan.Substring(0, roundedTimeSpan.Length - 8);
         }
 
 
