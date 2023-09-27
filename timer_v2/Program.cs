@@ -352,7 +352,7 @@ namespace TimerApp
                         string duration = "";
                         bool parseSuccess;
 
-                        Console.WriteLine("Enter new {0}. Duration will be adjusted. Format of input: ", timeName);
+                        Console.WriteLine("Enter new {0}. Duration will be adjusted. Format of input DD-MMM-YY hh:mm:ss: ", timeName);
 
                         (newTime, parseSuccess) = ParseStringToDateTime(InputCommand());
 
